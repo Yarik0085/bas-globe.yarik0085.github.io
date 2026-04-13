@@ -1,0 +1,1671 @@
+<!DOCTYPE html>
+<html lang="ru">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Беспилотный транспорт мира — Интерактивный глобус</title>
+    <style>
+        :root {
+            --bg: #050a14;
+            --surface: #0d1629;
+            --surface2: #111f38;
+            --border: rgba(0, 200, 255, 0.15);
+            --accent: #00c8ff;
+            --accent2: #7c3aed;
+            --text: #e2e8f0;
+            --muted: #64748b;
+            --green: #10b981;
+            --yellow: #f59e0b;
+            --red: #ef4444;
+            --font: 'Inter', system-ui, sans-serif;
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        html,
+        body {
+            width: 100%;
+            height: 100%;
+            overflow: hidden;
+            background: var(--bg);
+            color: var(--text);
+            font-family: var(--font);
+        }
+
+        /* ── LAYOUT ── */
+        #app {
+            display: flex;
+            height: 100vh;
+            width: 100vw;
+            position: relative;
+        }
+
+        #globe-wrap {
+            flex: 1;
+            position: relative;
+        }
+
+        #globe-canvas {
+            display: block;
+            width: 100%;
+            height: 100%;
+        }
+
+        /* ── LEFT NAV ── */
+        #sidebar-left {
+            width: 240px;
+            background: var(--surface);
+            border-right: 1px solid var(--border);
+            display: flex;
+            flex-direction: column;
+            z-index: 10;
+            flex-shrink: 0;
+        }
+
+        #logo {
+            padding: 20px 18px 14px;
+            border-bottom: 1px solid var(--border);
+        }
+
+        #logo h1 {
+            font-size: 13px;
+            font-weight: 700;
+            color: var(--accent);
+            letter-spacing: 1.5px;
+            text-transform: uppercase;
+            line-height: 1.4;
+        }
+
+        #logo p {
+            font-size: 10px;
+            color: var(--muted);
+            margin-top: 3px;
+        }
+
+        #transport-nav {
+            padding: 12px 0;
+            border-bottom: 1px solid var(--border);
+        }
+
+        #transport-nav h2 {
+            font-size: 10px;
+            color: var(--muted);
+            letter-spacing: 2px;
+            text-transform: uppercase;
+            padding: 0 18px 8px;
+        }
+
+        .tnav-btn {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            padding: 9px 18px;
+            font-size: 12px;
+            color: var(--text);
+            cursor: pointer;
+            transition: all 0.2s;
+            border: none;
+            background: none;
+            width: 100%;
+            text-align: left;
+        }
+
+        .tnav-btn:hover,
+        .tnav-btn.active {
+            background: rgba(0, 200, 255, 0.08);
+            color: var(--accent);
+        }
+
+        .tnav-btn .icon {
+            font-size: 18px;
+            width: 24px;
+            text-align: center;
+        }
+
+        .tnav-btn .cnt {
+            margin-left: auto;
+            font-size: 10px;
+            background: rgba(0, 200, 255, 0.15);
+            color: var(--accent);
+            padding: 2px 7px;
+            border-radius: 20px;
+        }
+
+        #legend {
+            padding: 14px 18px;
+            border-bottom: 1px solid var(--border);
+        }
+
+        #legend h2 {
+            font-size: 10px;
+            color: var(--muted);
+            letter-spacing: 2px;
+            text-transform: uppercase;
+            margin-bottom: 10px;
+        }
+
+        .leg-item {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            margin-bottom: 7px;
+            font-size: 11px;
+            color: var(--text);
+        }
+
+        .leg-dot {
+            width: 12px;
+            height: 12px;
+            border-radius: 50%;
+            flex-shrink: 0;
+        }
+
+        #stats-box {
+            padding: 14px 18px;
+        }
+
+        #stats-box h2 {
+            font-size: 10px;
+            color: var(--muted);
+            letter-spacing: 2px;
+            text-transform: uppercase;
+            margin-bottom: 10px;
+        }
+
+        .stat-row {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 8px;
+            font-size: 11px;
+        }
+
+        .stat-val {
+            color: var(--accent);
+            font-weight: 700;
+            font-size: 13px;
+        }
+
+        /* ── RIGHT PANEL ── */
+        #panel {
+            width: 380px;
+            background: var(--surface);
+            border-left: 1px solid var(--border);
+            display: flex;
+            flex-direction: column;
+            z-index: 10;
+            flex-shrink: 0;
+            transform: translateX(100%);
+            transition: transform 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+        }
+
+        #panel.open {
+            transform: translateX(0);
+        }
+
+        #panel-header {
+            padding: 18px 20px 14px;
+            border-bottom: 1px solid var(--border);
+            display: flex;
+            align-items: flex-start;
+            justify-content: space-between;
+        }
+
+        #panel-flag {
+            font-size: 40px;
+            margin-right: 12px;
+        }
+
+        #panel-info {
+            flex: 1;
+        }
+
+        #panel-country {
+            font-size: 18px;
+            font-weight: 700;
+            color: #fff;
+        }
+
+        #panel-level {
+            font-size: 11px;
+            margin-top: 3px;
+        }
+
+        #panel-close {
+            background: none;
+            border: none;
+            color: var(--muted);
+            font-size: 20px;
+            cursor: pointer;
+            padding: 0 4px;
+            flex-shrink: 0;
+        }
+
+        #panel-close:hover {
+            color: var(--text);
+        }
+
+        #panel-score {
+            padding: 14px 20px;
+            border-bottom: 1px solid var(--border);
+            display: flex;
+            gap: 14px;
+        }
+
+        .pscore {
+            flex: 1;
+            background: var(--surface2);
+            border-radius: 8px;
+            padding: 10px 12px;
+            text-align: center;
+        }
+
+        .pscore-val {
+            font-size: 20px;
+            font-weight: 800;
+            color: var(--accent);
+        }
+
+        .pscore-lbl {
+            font-size: 9px;
+            color: var(--muted);
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            margin-top: 2px;
+        }
+
+        #panel-tabs {
+            display: flex;
+            border-bottom: 1px solid var(--border);
+        }
+
+        .ptab {
+            flex: 1;
+            padding: 10px 0;
+            text-align: center;
+            font-size: 11px;
+            color: var(--muted);
+            cursor: pointer;
+            border-bottom: 2px solid transparent;
+            transition: all 0.2s;
+        }
+
+        .ptab.active {
+            color: var(--accent);
+            border-bottom-color: var(--accent);
+        }
+
+        #panel-content {
+            flex: 1;
+            overflow-y: auto;
+            padding: 16px 20px;
+        }
+
+        #panel-content::-webkit-scrollbar {
+            width: 4px;
+        }
+
+        #panel-content::-webkit-scrollbar-track {
+            background: transparent;
+        }
+
+        #panel-content::-webkit-scrollbar-thumb {
+            background: var(--border);
+            border-radius: 2px;
+        }
+
+        .project-card {
+            background: var(--surface2);
+            border-radius: 10px;
+            padding: 13px 14px;
+            margin-bottom: 10px;
+            border-left: 3px solid var(--accent);
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+
+        .project-card:hover {
+            transform: translateX(2px);
+            border-left-color: var(--accent);
+            box-shadow: 0 4px 16px rgba(0, 200, 255, 0.1);
+        }
+
+        .project-card.closed {
+            border-left-color: var(--red);
+            opacity: 0.75;
+        }
+
+        .project-card.leading {
+            border-left-color: var(--green);
+        }
+
+        .project-card.behind {
+            border-left-color: var(--yellow);
+        }
+
+        .pc-top {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            margin-bottom: 5px;
+        }
+
+        .pc-name {
+            font-size: 12px;
+            font-weight: 600;
+            color: #fff;
+        }
+
+        .pc-type {
+            font-size: 9px;
+            background: rgba(0, 200, 255, 0.12);
+            color: var(--accent);
+            padding: 2px 7px;
+            border-radius: 10px;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+
+        .pc-type.rail {
+            background: rgba(124, 58, 237, 0.15);
+            color: #a78bfa;
+        }
+
+        .pc-type.sea {
+            background: rgba(16, 185, 129, 0.12);
+            color: var(--green);
+        }
+
+        .pc-type.air {
+            background: rgba(245, 158, 11, 0.12);
+            color: var(--yellow);
+        }
+
+        .pc-desc {
+            font-size: 11px;
+            color: var(--muted);
+            line-height: 1.5;
+            margin-top: 4px;
+        }
+
+        .pc-status {
+            font-size: 10px;
+            margin-top: 6px;
+            display: flex;
+            align-items: center;
+            gap: 5px;
+        }
+
+        .status-dot {
+            width: 6px;
+            height: 6px;
+            border-radius: 50%;
+            flex-shrink: 0;
+        }
+
+        /* ── 3D MODEL VIEWER ── */
+        #model-section {
+            padding: 0 20px 16px;
+        }
+
+        #model-section h3 {
+            font-size: 10px;
+            color: var(--muted);
+            letter-spacing: 2px;
+            text-transform: uppercase;
+            margin-bottom: 10px;
+        }
+
+        .model-tabs {
+            display: flex;
+            gap: 6px;
+            flex-wrap: wrap;
+            margin-bottom: 12px;
+        }
+
+        .mtab {
+            padding: 5px 10px;
+            font-size: 10px;
+            border-radius: 20px;
+            border: 1px solid var(--border);
+            color: var(--muted);
+            cursor: pointer;
+            transition: all 0.2s;
+            background: none;
+        }
+
+        .mtab.active,
+        .mtab:hover {
+            border-color: var(--accent);
+            color: var(--accent);
+            background: rgba(0, 200, 255, 0.08);
+        }
+
+        #model-canvas-wrap {
+            width: 100%;
+            aspect-ratio: 16/9;
+            background: var(--surface2);
+            border-radius: 12px;
+            overflow: hidden;
+            position: relative;
+        }
+
+        #model-canvas {
+            width: 100%;
+            height: 100%;
+        }
+
+        #model-label {
+            position: absolute;
+            bottom: 8px;
+            left: 0;
+            right: 0;
+            text-align: center;
+            font-size: 10px;
+            color: var(--muted);
+        }
+
+        /* ── GLOBE TOOLTIP ── */
+        #tooltip {
+            position: fixed;
+            pointer-events: none;
+            background: rgba(13, 22, 41, 0.95);
+            border: 1px solid var(--border);
+            border-radius: 10px;
+            padding: 10px 14px;
+            font-size: 12px;
+            color: var(--text);
+            display: none;
+            z-index: 100;
+            max-width: 220px;
+            backdrop-filter: blur(8px);
+        }
+
+        #tooltip .tt-flag {
+            font-size: 22px;
+            margin-right: 6px;
+        }
+
+        #tooltip .tt-name {
+            font-weight: 700;
+            color: #fff;
+        }
+
+        #tooltip .tt-cnt {
+            font-size: 10px;
+            color: var(--muted);
+            margin-top: 3px;
+        }
+
+        /* ── TIMELINE STRIP ── */
+        #timeline-wrap {
+            position: absolute;
+            bottom: 0;
+            left: 240px;
+            right: 0;
+            height: 80px;
+            background: rgba(5, 10, 20, 0.9);
+            border-top: 1px solid var(--border);
+            display: flex;
+            align-items: center;
+            padding: 0 20px;
+            gap: 0;
+            overflow-x: auto;
+            z-index: 20;
+            scrollbar-width: none;
+        }
+
+        #timeline-wrap::-webkit-scrollbar {
+            display: none;
+        }
+
+        .tl-item {
+            flex-shrink: 0;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            margin-right: 28px;
+            cursor: pointer;
+        }
+
+        .tl-year {
+            font-size: 9px;
+            color: var(--muted);
+            margin-bottom: 4px;
+        }
+
+        .tl-dot {
+            width: 10px;
+            height: 10px;
+            border-radius: 50%;
+            background: var(--accent);
+            border: 2px solid var(--bg);
+            margin-bottom: 4px;
+            transition: all 0.2s;
+        }
+
+        .tl-item:hover .tl-dot {
+            transform: scale(1.6);
+        }
+
+        .tl-item:hover .tl-year {
+            color: var(--accent);
+        }
+
+        .tl-text {
+            font-size: 9px;
+            color: var(--muted);
+            text-align: center;
+            max-width: 90px;
+            line-height: 1.3;
+        }
+
+        .tl-line {
+            flex-shrink: 0;
+            height: 1px;
+            width: 28px;
+            background: var(--border);
+            align-self: center;
+            margin-top: -18px;
+        }
+
+        /* ── TOP BAR ── */
+        #topbar {
+            position: absolute;
+            top: 0;
+            left: 240px;
+            right: 0;
+            height: 44px;
+            background: rgba(5, 10, 20, 0.85);
+            border-bottom: 1px solid var(--border);
+            display: flex;
+            align-items: center;
+            padding: 0 20px;
+            gap: 16px;
+            z-index: 20;
+            backdrop-filter: blur(8px);
+        }
+
+        #topbar-title {
+            font-size: 11px;
+            color: var(--muted);
+            letter-spacing: 1.5px;
+            text-transform: uppercase;
+        }
+
+        #topbar-spacer {
+            flex: 1;
+        }
+
+        #search-box {
+            background: var(--surface2);
+            border: 1px solid var(--border);
+            border-radius: 20px;
+            padding: 5px 14px;
+            font-size: 11px;
+            color: var(--text);
+            width: 180px;
+            outline: none;
+        }
+
+        #search-box::placeholder {
+            color: var(--muted);
+        }
+
+        #search-box:focus {
+            border-color: var(--accent);
+        }
+
+        .topbar-tag {
+            font-size: 10px;
+            background: rgba(0, 200, 255, 0.1);
+            border: 1px solid var(--border);
+            color: var(--accent);
+            padding: 3px 10px;
+            border-radius: 20px;
+        }
+
+        @keyframes pulse {
+
+            0%,
+            100% {
+                opacity: 1
+            }
+
+            50% {
+                opacity: 0.5
+            }
+        }
+
+        .live-dot {
+            display: inline-block;
+            width: 7px;
+            height: 7px;
+            border-radius: 50%;
+            background: #10b981;
+            animation: pulse 2s infinite;
+            margin-right: 5px;
+        }
+    </style>
+</head>
+
+<body>
+    <div id="app">
+        <!-- LEFT SIDEBAR -->
+        <aside id="sidebar-left">
+            <div id="logo">
+                <h1>🌍 БАС Глобус 2026</h1>
+                <p>Беспилотный транспорт мира</p>
+            </div>
+            <nav id="transport-nav">
+                <h2>Вид транспорта</h2>
+                <button class="tnav-btn active" data-type="all">
+                    <span class="icon">🌐</span> Все виды <span class="cnt" id="cnt-all">55+</span>
+                </button>
+                <button class="tnav-btn" data-type="auto">
+                    <span class="icon">🚗</span> Автомобильный <span class="cnt" id="cnt-auto">22</span>
+                </button>
+                <button class="tnav-btn" data-type="rail">
+                    <span class="icon">🚆</span> Железнодорожный <span class="cnt" id="cnt-rail">12</span>
+                </button>
+                <button class="tnav-btn" data-type="sea">
+                    <span class="icon">🚢</span> Морской <span class="cnt" id="cnt-sea">9</span>
+                </button>
+                <button class="tnav-btn" data-type="air">
+                    <span class="icon">✈️</span> Воздушный <span class="cnt" id="cnt-air">14</span>
+                </button>
+            </nav>
+            <div id="legend">
+                <h2>Уровень технологий</h2>
+                <div class="leg-item">
+                    <div class="leg-dot" style="background:#00c8ff"></div> Мировой лидер
+                </div>
+                <div class="leg-item">
+                    <div class="leg-dot" style="background:#10b981"></div> Передовой
+                </div>
+                <div class="leg-item">
+                    <div class="leg-dot" style="background:#f59e0b"></div> Развитый
+                </div>
+                <div class="leg-item">
+                    <div class="leg-dot" style="background:#7c3aed"></div> Развивающийся
+                </div>
+                <div class="leg-item">
+                    <div class="leg-dot" style="background:#334155"></div> Данных нет
+                </div>
+            </div>
+            <div id="stats-box">
+                <h2>Статистика</h2>
+                <div class="stat-row"><span>Стран охвачено</span><span class="stat-val">24</span></div>
+                <div class="stat-row"><span>Проектов в базе</span><span class="stat-val">57</span></div>
+                <div class="stat-row"><span>Активных сейчас</span><span class="stat-val">41</span></div>
+                <div class="stat-row"><span>Закрытых</span><span class="stat-val">16</span></div>
+                <div class="stat-row"><span>Обновлено</span><span class="stat-val">Апр 2026</span></div>
+            </div>
+        </aside>
+
+        <!-- GLOBE -->
+        <div id="globe-wrap">
+            <div id="topbar">
+                <span id="topbar-title">Кликните на страну для просмотра проектов</span>
+                <div id="topbar-spacer"></div>
+                <span class="topbar-tag"><span class="live-dot"></span>Live 2026</span>
+                <input id="search-box" type="text" placeholder="🔍 Поиск страны...">
+            </div>
+            <canvas id="globe-canvas"></canvas>
+            <div id="timeline-wrap" id="timeline"></div>
+        </div>
+
+        <!-- RIGHT PANEL -->
+        <aside id="panel">
+            <div id="panel-header">
+                <span id="panel-flag">🇷🇺</span>
+                <div id="panel-info">
+                    <div id="panel-country">Россия</div>
+                    <div id="panel-level"></div>
+                </div>
+                <button id="panel-close">✕</button>
+            </div>
+            <div id="panel-score">
+                <div class="pscore">
+                    <div class="pscore-val" id="ps-projects">0</div>
+                    <div class="pscore-lbl">Проектов</div>
+                </div>
+                <div class="pscore">
+                    <div class="pscore-val" id="ps-active">0</div>
+                    <div class="pscore-lbl">Активных</div>
+                </div>
+                <div class="pscore">
+                    <div class="pscore-val" id="ps-score">0</div>
+                    <div class="pscore-lbl">Индекс</div>
+                </div>
+            </div>
+            <div id="model-section">
+                <h3>3D Модели прототипов</h3>
+                <div class="model-tabs">
+                    <button class="mtab active" data-model="truck">🚛 Грузовик</button>
+                    <button class="mtab" data-model="car">🚗 Роботакси</button>
+                    <button class="mtab" data-model="train">🚆 Поезд</button>
+                    <button class="mtab" data-model="ship">🚢 Судно</button>
+                    <button class="mtab" data-model="drone">✈️ Дрон</button>
+                    <button class="mtab" data-model="evtol">🚁 eVTOL</button>
+                </div>
+                <div id="model-canvas-wrap">
+                    <canvas id="model-canvas"></canvas>
+                    <div id="model-label">Автономный грузовик · SAE Level 4</div>
+                </div>
+            </div>
+            <div id="panel-tabs">
+                <div class="ptab active" data-tab="projects">Проекты</div>
+                <div class="ptab" data-tab="analysis">Анализ</div>
+            </div>
+            <div id="panel-content"></div>
+        </aside>
+    </div>
+
+    <div id="tooltip"></div>
+
+    <script>
+        // ═══════════════════════════════════════════
+        // DATA
+        // ═══════════════════════════════════════════
+        const COUNTRIES = {
+            "USA": { name: "США", flag: "🇺🇸", level: 0, lat: 38, lng: -97, score: 98 },
+            "CHN": { name: "Китай", flag: "🇨🇳", level: 0, lat: 35, lng: 105, score: 95 },
+            "DEU": { name: "Германия", flag: "🇩🇪", level: 1, lat: 51, lng: 10, score: 82 },
+            "JPN": { name: "Япония", flag: "🇯🇵", level: 1, lat: 36, lng: 138, score: 85 },
+            "KOR": { name: "Южная Корея", flag: "🇰🇷", level: 1, lat: 37, lng: 127, score: 80 },
+            "GBR": { name: "Великобритания", flag: "🇬🇧", level: 1, lat: 55, lng: -3, score: 78 },
+            "RUS": { name: "Россия", flag: "🇷🇺", level: 2, lat: 60, lng: 90, score: 70 },
+            "SWE": { name: "Швеция", flag: "🇸🇪", level: 1, lat: 62, lng: 18, score: 76 },
+            "NOR": { name: "Норвегия", flag: "🇳🇴", level: 1, lat: 65, lng: 15, score: 74 },
+            "SGP": { name: "Сингапур", flag: "🇸🇬", level: 1, lat: 1.4, lng: 103.8, score: 83 },
+            "AUS": { name: "Австралия", flag: "🇦🇺", level: 1, lat: -25, lng: 134, score: 72 },
+            "FRA": { name: "Франция", flag: "🇫🇷", level: 1, lat: 47, lng: 2, score: 71 },
+            "NLD": { name: "Нидерланды", flag: "🇳🇱", level: 1, lat: 52, lng: 5, score: 73 },
+            "ISR": { name: "Израиль", flag: "🇮🇱", level: 1, lat: 31, lng: 35, score: 77 },
+            "IND": { name: "Индия", flag: "🇮🇳", level: 2, lat: 21, lng: 79, score: 55 },
+            "BRA": { name: "Бразилия", flag: "🇧🇷", level: 3, lat: -10, lng: -53, score: 42 },
+            "UAE": { name: "ОАЭ", flag: "🇦🇪", level: 2, lat: 24, lng: 54, score: 65 },
+            "CAN": { name: "Канада", flag: "🇨🇦", level: 1, lat: 56, lng: -96, score: 75 },
+            "FIN": { name: "Финляндия", flag: "🇫🇮", level: 1, lat: 65, lng: 26, score: 70 },
+            "CHE": { name: "Швейцария", flag: "🇨🇭", level: 1, lat: 47, lng: 8, score: 74 },
+            "ZAF": { name: "ЮАР", flag: "🇿🇦", level: 3, lat: -29, lng: 25, score: 38 },
+            "MEX": { name: "Мексика", flag: "🇲🇽", level: 3, lat: 24, lng: -102, score: 35 },
+            "EST": { name: "Эстония", flag: "🇪🇪", level: 2, lat: 59, lng: 25, score: 60 },
+            "NZL": { name: "Новая Зеландия", flag: "🇳🇿", level: 2, lat: -41, lng: 174, score: 58 },
+        };
+
+        const PROJECTS = {
+            "USA": [
+                { name: "Waymo One", type: "auto", status: "leading", year: 2018, active: true, desc: "Коммерческое роботакси в Сан-Франциско, Финиксе, Лос-Анджелесе. 50 000+ поездок/нед. Уровень 4." },
+                { name: "GM Cruise", type: "auto", status: "closed", year: 2018, active: false, desc: "Закрыт в 2023 после аварии в SF. Одна из крупнейших неудач сектора." },
+                { name: "Tesla FSD", type: "auto", status: "active", year: 2020, active: true, desc: "Полная автономия через нейросеть. Версия 13 — Уровень 3 на шоссе." },
+                { name: "Aurora Freight", type: "auto", status: "active", year: 2021, active: true, desc: "Коммерческие грузовые перевозки Даллас–Хьюстон. Level 4 дальние рейсы." },
+                { name: "Zoox Robo", type: "auto", status: "active", year: 2023, active: true, desc: "Двунаправленное роботакси Amazon. Тесты в Сан-Хосе." },
+                { name: "Argo AI", type: "auto", status: "closed", year: 2020, active: false, desc: "Закрыт Ford и VW в 2022. $2.6B вложений — нет рыночной модели." },
+                { name: "Nuro Delivery", type: "auto", status: "active", year: 2019, active: true, desc: "Автономная доставка продуктов. Партнёрство с Kroger, Domino's." },
+                { name: "Wing Drone (Alphabet)", type: "air", status: "leading", year: 2019, active: true, desc: "Коммерческая доставка дронами. Австралия, Хельсинки, Техас." },
+                { name: "Amazon Prime Air", type: "air", status: "active", year: 2022, active: true, desc: "Доставка посылок до 2.3 кг. Тесты в Локфорде, Колледж Стейшн." },
+                { name: "Joby Aviation eVTOL", type: "air", status: "active", year: 2024, active: true, desc: "FAA сертификат. Аэротакси Uber-сделка. Запуск 2025." },
+                { name: "Archer Midnight", type: "air", status: "active", year: 2024, active: true, desc: "eVTOL на 4 пассажира, 97 км/ч. Контракт с United Airlines." },
+                { name: "Union Pacific AutoTrain", type: "rail", status: "active", year: 2020, active: true, desc: "Автономный маневровый локомотив. ИИ-диспетчер." },
+                { name: "DARPA Challenge Origin", type: "auto", status: "closed", year: 2004, active: false, desc: "Первая гонка беспилотников 2004 г. — ни один не доехал. 2005 — Stanley (Stanford) победил." },
+            ],
+            "CHN": [
+                { name: "Baidu Apollo Go", type: "auto", status: "leading", year: 2020, active: true, desc: "Крупнейший в мире роботакси-флот. 9+ городов. 7 млн км." },
+                { name: "WeRide", type: "auto", status: "leading", year: 2019, active: true, desc: "Роботакси и беспилотные автобусы в 10 городах КНР и ОАЭ." },
+                { name: "Pony.ai", type: "auto", status: "active", year: 2018, active: true, desc: "IPO на NYSE 2024. Коммерческие перевозки в Пекине, Гуанчжоу." },
+                { name: "AutoX / SAIC", type: "auto", status: "active", year: 2020, active: true, desc: "Беспилотники без оператора в Шэньчжэне. Крупнейший парк." },
+                { name: "DiDi Autonomous", type: "auto", status: "active", year: 2021, active: true, desc: "Роботакси в Шанхае. 100 000+ поездок через приложение DiDi." },
+                { name: "CRRC AutoTrain", type: "rail", status: "leading", year: 2018, active: true, desc: "Беспилотные поезда в Пекинском метро, линия Яньфан. GoA4." },
+                { name: "Ehang 216 eVTOL", type: "air", status: "active", year: 2023, active: true, desc: "Первое в мире серийное пассажирское eVTOL. Сертификат CAAC." },
+                { name: "SF Express Drone", type: "air", status: "active", year: 2018, active: true, desc: "Коммерческие доставки дронами в 700+ городах." },
+                { name: "Meituan BAS Delivery", type: "air", status: "active", year: 2022, active: true, desc: "Доставка еды дронами. Шэньчжэнь, Шанхай." },
+                { name: "Yutong Autonomous Bus", type: "auto", status: "active", year: 2019, active: true, desc: "Беспилотный автобус Yutong — первый рейс Чжэнчжоу 2016." },
+            ],
+            "RUS": [
+                { name: "КАМАЗ М-11/М-12", type: "auto", status: "leading", year: 2023, active: true, desc: "Беспилотные грузовики на трассах М-11 и М-12. 67 машин, ЭПР до 2028. Коммерческие рейсы с Магнитом." },
+                { name: "Яндекс Роботакси", type: "auto", status: "leading", year: 2019, active: true, desc: "Роботакси в Москве (центр), Иннополисе, «Сириусе». 100+ млн км." },
+                { name: "Беспилотный трамвай (Москва)", type: "rail", status: "leading", year: 2022, active: true, desc: "60 000+ пассажиров, 25 000 км пробег. Первый в мире регулярный беспилотный трамвай с пассажирами." },
+                { name: "Ласточка МЦК (РЖД)", type: "rail", status: "active", year: 2023, active: true, desc: "Беспилотная Ласточка на МЦК. Полный автопилот к 2027." },
+                { name: "Беспилотное метро БКЛ", type: "rail", status: "leading", year: 2024, active: true, desc: "Поезд «Москва-2024» на Большой кольцевой линии. GoA4 к 2030." },
+                { name: "SeaProject Зефир/Бриз", type: "sea", status: "active", year: 2022, active: true, desc: "Безэкипажные катера. Арктический маршрут Архангельск–Соловки." },
+                { name: "КАМАЗ Одиссей", type: "auto", status: "active", year: 2020, active: true, desc: "Автономный карьерный самосвал. Тесты на заводской территории." },
+                { name: "КАМАЗ Челнок", type: "auto", status: "active", year: 2020, active: true, desc: "Беспилотный электрогрузовик без кабины. Концепт." },
+                { name: "КАМАЗ ШАТЛ", type: "auto", status: "closed", year: 2018, active: false, desc: "Беспилотный шаттл НАМИ+КАМАЗ+Яндекс. Проект закрыт." },
+                { name: "Нацпроект БАС", type: "air", status: "active", year: 2024, active: true, desc: "546 млрд ₽ до 2030. 137 сертификатов эксплуатантов. Дронопорты." },
+                { name: "Cognitive Agro Pilot", type: "auto", status: "active", year: 2019, active: true, desc: "Автопилот для сельхозтехники Кировец K-7M. 3 млн га/сезон." },
+                { name: "Морской дрон Визир", type: "sea", status: "active", year: 2023, active: true, desc: "Автономный катер из СПб. Разведка и доставка." },
+                { name: "Маневровый локомотив ТМХ", type: "rail", status: "active", year: 2023, active: true, desc: "Беспилотный маневровый локомотив ТМХ и НИИАС. Испытания." },
+                { name: "Яндекс Беспилотный грузовик", type: "auto", status: "active", year: 2023, active: true, desc: "Первая доставка груза Яндекс.Маркета беспилотным КАМАЗом." },
+            ],
+            "DEU": [
+                { name: "Waymo in Hamburg (test)", type: "auto", status: "active", year: 2023, active: true, desc: "Испытания роботакси в европейских условиях." },
+                { name: "Volkswagen MOIA", type: "auto", status: "active", year: 2022, active: true, desc: "Электрошаттл с тестами автономного режима в Гамбурге." },
+                { name: "Siemens AutoTrain GoA4", type: "rail", status: "leading", year: 2021, active: true, desc: "Беспилотные поезда S-Bahn Гамбурга. GoA4 с 2021." },
+                { name: "Volocopter eVTOL", type: "air", status: "active", year: 2024, active: true, desc: "Немецкий eVTOL. Тест полёты в Сингапуре, Хельсинки." },
+                { name: "Lilium Jet", type: "air", status: "closed", year: 2019, active: false, desc: "Немецкий электрический самолёт eVTOL. Банкротство 2023." },
+            ],
+            "JPN": [
+                { name: "Toyota e-Palette (Олимпиада)", type: "auto", status: "closed", year: 2021, active: false, desc: "Беспилотный шаттл Олимпиады 2021. Авария с паралимпийцем — приостановлен." },
+                { name: "Honda Cruise Origin Japan", type: "auto", status: "active", year: 2024, active: true, desc: "Партнёрство с GM Cruise для Токио." },
+                { name: "ZMP RoboCar", type: "auto", status: "active", year: 2018, active: true, desc: "Роботакси платформа для японских городов." },
+                { name: "NS Solutions AutoTrain", type: "rail", status: "active", year: 2022, active: true, desc: "Автономные поезда в горнодобыче. Rio Tinto style." },
+                { name: "ANA Sky Hub Drones", type: "air", status: "active", year: 2022, active: true, desc: "Доставка дронами удалённые острова." },
+            ],
+            "NOR": [
+                { name: "Yara Birkeland", type: "sea", status: "leading", year: 2022, active: true, desc: "Первое в мире коммерческое автономное грузовое судно. Порт Херёйя → Брейвик." },
+                { name: "ASKO Maritime Drone Ships", type: "sea", status: "active", year: 2020, active: true, desc: "Автономные суда для доставки продуктов вдоль побережья." },
+                { name: "Zeabuz Ropax Ferry", type: "sea", status: "active", year: 2022, active: true, desc: "Автономный пассажирский паром через фьорды." },
+                { name: "Cavotec AutoMooring", type: "sea", status: "active", year: 2021, active: true, desc: "Автоматическая швартовка судов." },
+            ],
+            "SGP": [
+                { name: "nuTonomy / Motional", type: "auto", status: "active", year: 2016, active: true, desc: "Первый в мире публичный тест роботакси (2016). Hyundai Ioniq 5." },
+                { name: "EasyMile EZ10 (Singapore)", type: "auto", status: "active", year: 2020, active: true, desc: "Беспилотные шаттлы в кварталах One-North, Tengah." },
+                { name: "ST Engineering AutoBus", type: "auto", status: "active", year: 2021, active: true, desc: "Автономные автобусы уровня 4. Jurong Innovation District." },
+            ],
+            "GBR": [
+                { name: "Wayve AI", type: "auto", status: "active", year: 2022, active: true, desc: "Лондонский стартап. ИИ-модель GAIA — обучение через интернет." },
+                { name: "Oxbotica / Oxa", type: "auto", status: "active", year: 2021, active: true, desc: "Платформа автономности для любого транспорта. Oxford." },
+                { name: "Rolls-Royce Intel·lic Ships", type: "sea", status: "active", year: 2020, active: true, desc: "Автономные суда с ИИ-навигацией." },
+            ],
+            "AUS": [
+                { name: "Rio Tinto AutoHaul", type: "rail", status: "leading", year: 2019, active: true, desc: "Крупнейший в мире парк автономных поездов (240+). Пилбара, WA." },
+                { name: "BHP AutoDrive Trucks", type: "auto", status: "leading", year: 2018, active: true, desc: "800+ беспилотных карьерных самосвалов Komatsu. Рекорд мира." },
+                { name: "Wing Deliveries AUS", type: "air", status: "leading", year: 2019, active: true, desc: "Первые в мире коммерческие доставки дронами. Канберра, Логан." },
+            ],
+            "SWE": [
+                { name: "Einride Freight (T-Pod)", type: "auto", status: "leading", year: 2019, active: true, desc: "Беспилотный электрогрузовик без кабины. Коммерческие рейсы IKEA, DB Schenker." },
+                { name: "Scania AXL Cabless", type: "auto", status: "active", year: 2021, active: true, desc: "Беспилотный карьерный самосвал Scania." },
+                { name: "Stena Line AutoFerry", type: "sea", status: "active", year: 2022, active: true, desc: "Паром Stena с автономной навигацией в Северном море." },
+            ],
+            "UAE": [
+                { name: "Dubai Autonomous Metro", type: "rail", status: "leading", year: 2010, active: true, desc: "Красная и зелёная линия — полностью беспилотные с 2010. GoA4." },
+                { name: "GITEX AV Pods", type: "auto", status: "active", year: 2022, active: true, desc: "Беспилотные поды EasyMile в технопарке Dubai." },
+                { name: "Archer eVTOL Dubai", type: "air", status: "active", year: 2025, active: true, desc: "Контракт на аэротакси в Дубае с 2026." },
+                { name: "WeRide UAE", type: "auto", status: "active", year: 2022, active: true, desc: "Роботакси WeRide в Абу-Даби. 20+ машин." },
+            ],
+            "IND": [
+                { name: "Ola AV India", type: "auto", status: "active", year: 2023, active: true, desc: "Ola Electric тест беспилотников в Бангалоре." },
+                { name: "WayFarer AutoShuttle", type: "auto", status: "active", year: 2022, active: true, desc: "Беспилотные шаттлы на технопарках." },
+                { name: "Sky Air Delivery", type: "air", status: "active", year: 2022, active: true, desc: "Первые дроновые доставки в сельской Индии. 6500+ рейсов." },
+            ],
+            "ISR": [
+                { name: "Mobileye SuperVision", type: "auto", status: "leading", year: 2021, active: true, desc: "Платформа автономного вождения уровня 2+ в 250 000+ авто." },
+                { name: "Ottopia Remote Driving", type: "auto", status: "active", year: 2022, active: true, desc: "Удалённое управление беспилотниками из центров Израиля." },
+            ],
+            "CAN": [
+                { name: "Aurora Innovation CAN", type: "auto", status: "active", year: 2022, active: true, desc: "Рейсы Даллас–Хьюстон. Canadian investor base." },
+                { name: "Gatik Autonomous Logistics", type: "auto", status: "active", year: 2020, active: true, desc: "B2B беспилотная логистика. Walmart, Loblaw." },
+            ],
+            "KOR": [
+                { name: "Hyundai Ioniq Robo", type: "auto", status: "active", year: 2022, active: true, desc: "Беспилотное такси в Сеуле. Партнёрство Hyundai + Aptiv." },
+                { name: "KTX Ghost Train", type: "rail", status: "active", year: 2023, active: true, desc: "Тест беспилотного скоростного поезда KTX Сеул–Пусан." },
+                { name: "Kakao Drone Delivery", type: "air", status: "active", year: 2023, active: true, desc: "Доставка посылок дронами Kakao." },
+            ],
+            "FIN": [
+                { name: "FABULOS AutoBus", type: "auto", status: "active", year: 2019, active: true, desc: "Беспилотные автобусы ЕС-программы. Хельсинки." },
+                { name: "Wing Delivery Helsinki", type: "air", status: "active", year: 2022, active: true, desc: "Первые доставки дронами в Европе (совместно с Wing)." },
+            ],
+            "NZL": [
+                { name: "Flirtey Drone (BVLOS)", type: "air", status: "active", year: 2019, active: true, desc: "Первая в мире BVLOS-доставка медикаментов. 2015 FDA test." },
+                { name: "Ohmio AutoShuttle", type: "auto", status: "active", year: 2020, active: true, desc: "Беспилотные шаттлы на кампусах NZ." },
+            ],
+            "BRA": [
+                { name: "iFood Drone Delivery", type: "air", status: "active", year: 2022, active: true, desc: "Доставка еды дронами в Сан-Паулу." },
+            ],
+            "ZAF": [
+                { name: "Drone 4 All Delivery", type: "air", status: "active", year: 2021, active: true, desc: "Медицинские доставки дронами в сельские районы." },
+            ],
+            "MEX": [
+                { name: "Zipline Mexico Medical", type: "air", status: "active", year: 2023, active: true, desc: "Медицинская доставка дронами Zipline." },
+            ],
+            "EST": [
+                { name: "Cleveron Delivery Robot", type: "auto", status: "active", year: 2020, active: true, desc: "Автономный курьер последней мили. Рынки ЕС." },
+                { name: "Auve Tech AV", type: "auto", status: "active", year: 2021, active: true, desc: "Беспилотный минибас для умных городов." },
+            ],
+            "FRA": [
+                { name: "Navya Autonom Cab", type: "auto", status: "closed", year: 2017, active: false, desc: "Беспилотный шаттл. Банкротство 2023. 350 единиц по всему миру." },
+                { name: "EasyMile EZ10 Global", type: "auto", status: "active", year: 2018, active: true, desc: "Беспилотные шаттлы. 40+ стран. HQ Тулуза." },
+                { name: "Air France Drone Port", type: "air", status: "active", year: 2024, active: true, desc: "Проект дронопортов для грузов CDG." },
+            ],
+            "NLD": [
+                { name: "2getthere Group Rapid Transit", type: "auto", status: "active", year: 2019, active: true, desc: "Беспилотный PRT в Масдар-Сити, Амстердам Schiphol." },
+                { name: "Vanderlande AutoDock", type: "sea", status: "active", year: 2021, active: true, desc: "Автономные системы в портах Роттердам." },
+            ],
+            "CHE": [
+                { name: "BVB Basel Tram Test", type: "rail", status: "active", year: 2022, active: true, desc: "Тест автономного трамвая в Базеле (Stadler Rail)." },
+                { name: "Matternet M2 Drone", type: "air", status: "leading", year: 2017, active: true, desc: "Коммерческие медицинские доставки дронами. Швейцарские клиники." },
+            ],
+        };
+
+        const TIMELINE = [
+            { year: 2004, text: "DARPA Challenge — первая гонка беспилотников", country: "USA" },
+            { year: 2009, text: "Google Self-Driving Car Project старт", country: "USA" },
+            { year: 2010, text: "Дубай Metro GoA4 — первое беспилотное метро", country: "UAE" },
+            { year: 2015, text: "Waymo — 1 млн миль без происшествий", country: "USA" },
+            { year: 2016, text: "nuTonomy первое роботакси в Сингапуре", country: "SGP" },
+            { year: 2017, text: "Baidu Apollo Open Platform запуск", country: "CHN" },
+            { year: 2018, text: "Rio Tinto AutoHaul — 240 поездов без машиниста", country: "AUS" },
+            { year: 2019, text: "Waymo One — коммерческий запуск в Финиксе", country: "USA" },
+            { year: 2019, text: "Wing — первые в мире коммерческие доставки", country: "AUS" },
+            { year: 2021, text: "Siemens GoA4 — S-Bahn Гамбург", country: "DEU" },
+            { year: 2022, text: "Yara Birkeland — первое автономное судно", country: "NOR" },
+            { year: 2022, text: "Беспилотный трамвай Москва — 60 000 пассажиров", country: "RUS" },
+            { year: 2023, text: "GM Cruise закрыт после аварии в SF", country: "USA" },
+            { year: 2023, text: "КАМАЗ запуск на М-11 — ЭПР до 2028", country: "RUS" },
+            { year: 2024, text: "Ehang 216 — первое серийное пассажирское eVTOL", country: "CHN" },
+            { year: 2025, text: "Яндекс роботакси в центре Москвы", country: "RUS" },
+            { year: 2026, text: "Запуск М-12, 67 беспилотников на трассах РФ", country: "RUS" },
+        ];
+
+        // ═══════════════════════════════════════════
+        // GLOBE RENDERER
+        // ═══════════════════════════════════════════
+        const canvas = document.getElementById('globe-canvas');
+        const ctx = canvas.getContext('2d');
+        let W, H, cx, cy, R;
+        let rotY = -0.5, rotX = 0.2;
+        let dragging = false, lastX, lastY;
+        let autoRot = true;
+        let hoveredCountry = null;
+        let activeType = 'all';
+
+        const LEVEL_COLORS = ['#00c8ff', '#10b981', '#f59e0b', '#7c3aed', '#334155'];
+
+        function resize() {
+            const wrap = document.getElementById('globe-wrap');
+            W = canvas.width = wrap.clientWidth;
+            H = canvas.height = wrap.clientHeight - 80 - 44; // minus timeline and topbar
+            cx = W / 2; cy = H / 2 + 44;
+            R = Math.min(W, H) * 0.38;
+        }
+
+        function project(lat, lng) {
+            const phi = (90 - lat) * Math.PI / 180;
+            const theta = (lng + 180) * Math.PI / 180;
+            let x = Math.sin(phi) * Math.cos(theta);
+            let y = Math.cos(phi);
+            let z = Math.sin(phi) * Math.sin(theta);
+            // rotate Y
+            let cosY = Math.cos(rotY), sinY = Math.sin(rotY);
+            let nx = x * cosY - z * sinY;
+            let nz = x * sinY + z * cosY;
+            x = nx; z = nz;
+            // rotate X
+            let cosX = Math.cos(rotX), sinX = Math.sin(rotX);
+            let ny2 = y * cosX - z * sinX;
+            let nz2 = y * sinX + z * cosX;
+            y = ny2; z = nz2;
+            return { x: cx + x * R, y: cy - y * R, z };
+        }
+
+        function drawGlobe() {
+            ctx.clearRect(0, 0, W, H);
+
+            // Outer glow
+            const grd = ctx.createRadialGradient(cx, cy, R * 0.7, cx, cy, R * 1.2);
+            grd.addColorStop(0, 'rgba(0,200,255,0.03)');
+            grd.addColorStop(1, 'rgba(0,0,0,0)');
+            ctx.fillStyle = grd;
+            ctx.fillRect(0, 0, W, H);
+
+            // Globe body
+            ctx.beginPath();
+            ctx.arc(cx, cy, R, 0, Math.PI * 2);
+            const grad = ctx.createRadialGradient(cx - R * 0.3, cy - R * 0.3, R * 0.1, cx, cy, R);
+            grad.addColorStop(0, '#0d1e3a');
+            grad.addColorStop(1, '#050a14');
+            ctx.fillStyle = grad;
+            ctx.fill();
+
+            // Atmosphere
+            ctx.beginPath();
+            ctx.arc(cx, cy, R + 8, 0, Math.PI * 2);
+            const atm = ctx.createRadialGradient(cx, cy, R - 2, cx, cy, R + 14);
+            atm.addColorStop(0, 'rgba(0,200,255,0.15)');
+            atm.addColorStop(1, 'rgba(0,200,255,0)');
+            ctx.strokeStyle = atm;
+            ctx.lineWidth = 12;
+            ctx.stroke();
+
+            // Grid lines
+            ctx.strokeStyle = 'rgba(0,200,255,0.06)';
+            ctx.lineWidth = 0.5;
+            for (let lat = -80; lat <= 80; lat += 20) {
+                ctx.beginPath();
+                let first = true;
+                for (let lng = -180; lng <= 180; lng += 3) {
+                    const p = project(lat, lng);
+                    if (p.z > 0) {
+                        if (first) { ctx.moveTo(p.x, p.y); first = false; }
+                        else ctx.lineTo(p.x, p.y);
+                    } else first = true;
+                }
+                ctx.stroke();
+            }
+            for (let lng = -180; lng < 180; lng += 20) {
+                ctx.beginPath();
+                let first = true;
+                for (let lat = -90; lat <= 90; lat += 3) {
+                    const p = project(lat, lng);
+                    if (p.z > 0) {
+                        if (first) { ctx.moveTo(p.x, p.y); first = false; }
+                        else ctx.lineTo(p.x, p.y);
+                    } else first = true;
+                }
+                ctx.stroke();
+            }
+
+            // Country dots
+            const sorted = Object.entries(COUNTRIES).sort((a, b) => {
+                const pa = project(a[1].lat, a[1].lng);
+                const pb = project(b[1].lat, b[1].lng);
+                return pa.z - pb.z;
+            });
+
+            for (const [code, c] of sorted) {
+                const p = project(c.lat, c.lng);
+                if (p.z < 0) continue;
+
+                const projs = PROJECTS[code] || [];
+                const filteredCount = activeType === 'all' ? projs.length :
+                    projs.filter(pr => pr.type === activeType).length;
+
+                if (filteredCount === 0 && activeType !== 'all') continue;
+
+                const isHovered = hoveredCountry === code;
+                const color = LEVEL_COLORS[c.level] || LEVEL_COLORS[4];
+                const baseR = 6 + Math.min(filteredCount, 14) * 0.8;
+                const dotR = isHovered ? baseR + 4 : baseR;
+
+                // Glow
+                if (isHovered || c.level <= 1) {
+                    const glow = ctx.createRadialGradient(p.x, p.y, 0, p.x, p.y, dotR * 3);
+                    glow.addColorStop(0, color.replace(')', ',0.4)').replace('rgb', 'rgba'));
+                    glow.addColorStop(1, 'rgba(0,0,0,0)');
+                    ctx.beginPath();
+                    ctx.arc(p.x, p.y, dotR * 3, 0, Math.PI * 2);
+                    ctx.fillStyle = glow;
+                    ctx.fill();
+                }
+
+                // Pulse ring for leaders
+                if (c.level === 0) {
+                    const t = Date.now() / 1000;
+                    const pulseR = dotR + 6 + Math.sin(t * 2) * 4;
+                    ctx.beginPath();
+                    ctx.arc(p.x, p.y, pulseR, 0, Math.PI * 2);
+                    ctx.strokeStyle = color.replace('rgb', 'rgba').replace(')', ',0.3)') || 'rgba(0,200,255,0.3)';
+                    ctx.lineWidth = 1;
+                    ctx.stroke();
+                }
+
+                // Main dot
+                ctx.beginPath();
+                ctx.arc(p.x, p.y, dotR, 0, Math.PI * 2);
+                ctx.fillStyle = isHovered ? '#fff' : color;
+                ctx.fill();
+                ctx.strokeStyle = 'rgba(0,0,0,0.5)';
+                ctx.lineWidth = 1;
+                ctx.stroke();
+
+                // Count badge
+                if (filteredCount > 0) {
+                    ctx.fillStyle = isHovered ? '#000' : '#fff';
+                    ctx.font = `bold ${Math.max(7, dotR * 0.7)}px Inter,sans-serif`;
+                    ctx.textAlign = 'center';
+                    ctx.textBaseline = 'middle';
+                    ctx.fillText(filteredCount, p.x, p.y);
+                }
+
+                // Flag label on hover
+                if (isHovered) {
+                    ctx.font = '12px Inter,sans-serif';
+                    ctx.fillStyle = '#fff';
+                    ctx.textAlign = 'center';
+                    ctx.fillText(c.flag + ' ' + c.name, p.x, p.y - dotR - 8);
+                }
+            }
+
+            // Globe border
+            ctx.beginPath();
+            ctx.arc(cx, cy, R, 0, Math.PI * 2);
+            ctx.strokeStyle = 'rgba(0,200,255,0.2)';
+            ctx.lineWidth = 1;
+            ctx.stroke();
+        }
+
+        // ═══ ANIMATION LOOP ═══
+        let raf;
+        function loop() {
+            if (autoRot) rotY += 0.003;
+            drawGlobe();
+            raf = requestAnimationFrame(loop);
+        }
+
+        // ═══ HIT TEST ═══
+        function hitTest(mx, my) {
+            for (const [code, c] of Object.entries(COUNTRIES)) {
+                const p = project(c.lat, c.lng);
+                if (p.z < 0) continue;
+                const d = Math.hypot(mx - p.x, my - p.y);
+                const projs = PROJECTS[code] || [];
+                const baseR = 6 + Math.min(projs.length, 14) * 0.8 + 8;
+                if (d < baseR) return code;
+            }
+            return null;
+        }
+
+        // ═══ MOUSE EVENTS ═══
+        const globeWrap = document.getElementById('globe-wrap');
+        const tooltip = document.getElementById('tooltip');
+
+        canvas.addEventListener('mousedown', e => {
+            dragging = true; autoRot = false;
+            lastX = e.clientX; lastY = e.clientY;
+        });
+        canvas.addEventListener('mousemove', e => {
+            const rect = canvas.getBoundingClientRect();
+            const mx = e.clientX - rect.left;
+            const my = e.clientY - rect.top;
+            if (dragging) {
+                rotY += (e.clientX - lastX) * 0.005;
+                rotX += (e.clientY - lastY) * 0.005;
+                rotX = Math.max(-1.2, Math.min(1.2, rotX));
+                lastX = e.clientX; lastY = e.clientY;
+                hoveredCountry = null;
+                tooltip.style.display = 'none';
+            } else {
+                const hit = hitTest(mx, my);
+                hoveredCountry = hit;
+                if (hit) {
+                    const c = COUNTRIES[hit];
+                    const projs = PROJECTS[hit] || [];
+                    tooltip.style.display = 'block';
+                    tooltip.style.left = (e.clientX + 14) + 'px';
+                    tooltip.style.top = (e.clientY - 20) + 'px';
+                    tooltip.innerHTML = `<span class="tt-flag">${c.flag}</span><span class="tt-name">${c.name}</span><div class="tt-cnt">Проектов: ${projs.length} · Индекс: ${c.score}/100</div>`;
+                    canvas.style.cursor = 'pointer';
+                } else {
+                    tooltip.style.display = 'none';
+                    canvas.style.cursor = 'grab';
+                }
+            }
+        });
+        canvas.addEventListener('mouseup', () => { dragging = false; setTimeout(() => { autoRot = true; }, 3000); });
+        canvas.addEventListener('mouseleave', () => { dragging = false; hoveredCountry = null; tooltip.style.display = 'none'; });
+        canvas.addEventListener('click', e => {
+            const rect = canvas.getBoundingClientRect();
+            const mx = e.clientX - rect.left;
+            const my = e.clientY - rect.top;
+            const hit = hitTest(mx, my);
+            if (hit) openPanel(hit);
+        });
+
+        // ═══ TRANSPORT NAV ═══
+        document.querySelectorAll('.tnav-btn').forEach(btn => {
+            btn.addEventListener('click', () => {
+                document.querySelectorAll('.tnav-btn').forEach(b => b.classList.remove('active'));
+                btn.classList.add('active');
+                activeType = btn.dataset.type;
+            });
+        });
+
+        // ═══ PANEL ═══
+        function openPanel(code) {
+            const c = COUNTRIES[code];
+            if (!c) return;
+            document.getElementById('panel-flag').textContent = c.flag;
+            document.getElementById('panel-country').textContent = c.name;
+            const levels = ['🏆 Мировой лидер', '⭐ Передовой', '🔵 Развитый', '🟣 Развивающийся', '⬜ Данных нет'];
+            document.getElementById('panel-level').innerHTML = `<span style="color:${LEVEL_COLORS[c.level]}">${levels[c.level]}</span>`;
+            const projs = PROJECTS[code] || [];
+            document.getElementById('ps-projects').textContent = projs.length;
+            document.getElementById('ps-active').textContent = projs.filter(p => p.active).length;
+            document.getElementById('ps-score').textContent = c.score;
+            renderTab('projects', code);
+            document.getElementById('panel').classList.add('open');
+            currentCountry = code;
+            initModelCanvas();
+        }
+        document.getElementById('panel-close').addEventListener('click', () => {
+            document.getElementById('panel').classList.remove('open');
+        });
+
+        let currentCountry = null;
+        document.querySelectorAll('.ptab').forEach(tab => {
+            tab.addEventListener('click', () => {
+                document.querySelectorAll('.ptab').forEach(t => t.classList.remove('active'));
+                tab.classList.add('active');
+                renderTab(tab.dataset.tab, currentCountry);
+            });
+        });
+
+        function renderTab(tab, code) {
+            const el = document.getElementById('panel-content');
+            const projs = PROJECTS[code] || [];
+            if (tab === 'projects') {
+                const filtered = activeType === 'all' ? projs : projs.filter(p => p.type === activeType);
+                if (!filtered.length) { el.innerHTML = '<p style="color:var(--muted);font-size:12px;padding:20px 0;text-align:center;">Нет проектов по данному виду транспорта</p>'; return; }
+                el.innerHTML = filtered.map(p => {
+                    const statusClass = p.status === 'leading' ? 'leading' : p.active ? '' : 'closed';
+                    const statusColor = p.status === 'leading' ? '#10b981' : p.active ? '#00c8ff' : '#ef4444';
+                    const statusText = p.status === 'leading' ? 'Лидер' : p.active ? 'Активен' : 'Закрыт';
+                    const typeLabels = { auto: 'Авто', rail: 'ЖД', sea: 'Море', air: 'Воздух' };
+                    return `<div class="project-card ${statusClass}">
+        <div class="pc-top">
+          <span class="pc-name">${p.name}</span>
+          <span class="pc-type ${p.type}">${typeLabels[p.type] || p.type}</span>
+        </div>
+        <div class="pc-desc">${p.desc}</div>
+        <div class="pc-status">
+          <span class="status-dot" style="background:${statusColor}"></span>
+          <span style="color:${statusColor};font-weight:600">${statusText}</span>
+          <span style="color:var(--muted);margin-left:8px">Запуск: ${p.year}</span>
+        </div>
+      </div>`;
+                }).join('');
+            } else {
+                const c = COUNTRIES[code];
+                const types = { auto: 0, rail: 0, sea: 0, air: 0 };
+                projs.forEach(p => { if (types[p.type] !== undefined) types[p.type]++; });
+                el.innerHTML = `
+      <div style="background:var(--surface2);border-radius:10px;padding:14px;margin-bottom:10px">
+        <div style="font-size:11px;color:var(--muted);margin-bottom:8px;text-transform:uppercase;letter-spacing:1px">Индекс технологий</div>
+        <div style="font-size:36px;font-weight:800;color:var(--accent)">${c.score}<span style="font-size:14px;color:var(--muted)">/100</span></div>
+      </div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:10px">
+        ${[['🚗', 'Авто', types.auto, 'auto'], ['🚆', 'ЖД', types.rail, 'rail'], ['🚢', 'Море', types.sea, 'sea'], ['✈️', 'Воздух', types.air, 'air']].map(([ic, lb, cnt, tp]) => `
+        <div style="background:var(--surface2);border-radius:8px;padding:10px;text-align:center">
+          <div style="font-size:20px">${ic}</div>
+          <div style="font-size:18px;font-weight:700;color:var(--accent)">${cnt}</div>
+          <div style="font-size:10px;color:var(--muted)">${lb}</div>
+        </div>`).join('')}
+      </div>
+      <div style="background:var(--surface2);border-radius:10px;padding:14px">
+        <div style="font-size:11px;color:var(--muted);margin-bottom:8px;text-transform:uppercase;letter-spacing:1px">Статус проектов</div>
+        ${[['#10b981', 'Лидирующих', projs.filter(p => p.status === 'leading').length],
+                    ['#00c8ff', 'Активных', projs.filter(p => p.active && p.status !== 'leading').length],
+                    ['#ef4444', 'Закрытых', projs.filter(p => !p.active).length]
+                    ].map(([col, lb, cnt]) => `<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;font-size:12px"><span style="color:var(--muted)">${lb}</span><span style="color:${col};font-weight:700">${cnt}</span></div>`).join('')}
+      </div>`;
+            }
+        }
+
+        // ═══ 3D MODEL CANVAS ═══
+        const mc = document.getElementById('model-canvas');
+        const mctx = mc.getContext('2d');
+        let modelType = 'truck';
+        let modelT = 0;
+        let modelRaf;
+
+        const MODEL_COLORS = {
+            truck: { body: '#1e40af', cab: '#2563eb', wheel: '#374151', accent: '#60a5fa', name: 'Автономный грузовик · SAE Level 4' },
+            car: { body: '#7c3aed', cab: '#8b5cf6', wheel: '#374151', accent: '#a78bfa', name: 'Роботакси · Level 4+' },
+            train: { body: '#064e3b', cab: '#065f46', wheel: '#374151', accent: '#34d399', name: 'Беспилотный поезд · GoA4' },
+            ship: { body: '#1e3a5f', cab: '#1e4d7b', wheel: '#0f172a', accent: '#38bdf8', name: 'Автономное судно' },
+            drone: { body: '#7f1d1d', cab: '#991b1b', wheel: '#1f2937', accent: '#fca5a5', name: 'Грузовой БАС' },
+            evtol: { body: '#164e63', cab: '#0e7490', wheel: '#1f2937', accent: '#22d3ee', name: 'eVTOL Аэротакси' },
+        };
+
+        function initModelCanvas() {
+            mc.width = mc.offsetWidth * devicePixelRatio || 320;
+            mc.height = mc.offsetHeight * devicePixelRatio || 180;
+            mctx.scale(devicePixelRatio, devicePixelRatio);
+        }
+
+        function drawModel(t) {
+            const w = mc.offsetWidth || 320;
+            const h = mc.offsetHeight || 180;
+            mctx.clearRect(0, 0, w, h);
+
+            // Background
+            const bg = mctx.createLinearGradient(0, 0, w, h);
+            bg.addColorStop(0, '#0a0f2c'); bg.addColorStop(1, '#050a14');
+            mctx.fillStyle = bg;
+            mctx.fillRect(0, 0, w, h);
+
+            // Grid floor
+            mctx.strokeStyle = 'rgba(0,200,255,0.08)';
+            mctx.lineWidth = 0.5;
+            for (let i = 0; i < 8; i++) {
+                const y = h * 0.65 + i * 8;
+                mctx.beginPath(); mctx.moveTo(0, y); mctx.lineTo(w, y); mctx.stroke();
+            }
+            for (let i = 0; i < 12; i++) {
+                const x = i * (w / 11);
+                mctx.beginPath(); mctx.moveTo(x, h * 0.6); mctx.lineTo(x, h); mctx.stroke();
+            }
+
+            const c = MODEL_COLORS[modelType];
+            const bob = Math.sin(t * 2) * 2;
+            const cx2 = w / 2, cy2 = h * 0.5 + bob;
+
+            if (modelType === 'truck') {
+                drawTruck(cx2, cy2, w, h, c, t);
+            } else if (modelType === 'car') {
+                drawCar(cx2, cy2, w, h, c, t);
+            } else if (modelType === 'train') {
+                drawTrain(cx2, cy2, w, h, c, t);
+            } else if (modelType === 'ship') {
+                drawShip(cx2, cy2, w, h, c, t);
+            } else if (modelType === 'drone') {
+                drawDrone(cx2, cy2, w, h, c, t);
+            } else if (modelType === 'evtol') {
+                drawEvtol(cx2, cy2, w, h, c, t);
+            }
+
+            // Scanline HUD
+            mctx.strokeStyle = c.accent.replace('#', '') ? c.accent + '33' : 'rgba(0,200,255,0.1)';
+            mctx.lineWidth = 0.5;
+            for (let i = 0; i < h; i += 4) {
+                mctx.beginPath(); mctx.moveTo(0, i); mctx.lineTo(w, i); mctx.stroke();
+            }
+
+            document.getElementById('model-label').textContent = c.name;
+        }
+
+        function drawTruck(cx, cy, w, h, c, t) {
+            const W2 = w * 0.65, H2 = h * 0.32;
+            mctx.save(); mctx.translate(cx, cy);
+            // Shadow
+            mctx.fillStyle = 'rgba(0,0,0,0.3)';
+            mctx.ellipse(0, H2 * 0.7 + 6, W2 * 0.5, 8, 0, 0, Math.PI * 2);
+            mctx.fill();
+            // Trailer
+            mctx.fillStyle = c.body;
+            roundRect(mctx, -W2 * 0.5, -H2 * 0.4, W2 * 0.65, H2 * 0.8, 4);
+            mctx.fillStyle = c.cab;
+            roundRect(mctx, W2 * 0.16, -H2 * 0.5, W2 * 0.34, H2, 5);
+            // Window
+            mctx.fillStyle = c.accent + '66';
+            roundRect(mctx, W2 * 0.18, -H2 * 0.45, W2 * 0.14, H2 * 0.3, 2);
+            // Wheels
+            [-W2 * 0.35, -W2 * 0.1, W2 * 0.25].forEach(wx => {
+                const spin = t * 3;
+                mctx.save(); mctx.translate(wx, H2 * 0.38);
+                mctx.beginPath(); mctx.arc(0, 0, 10, 0, Math.PI * 2);
+                mctx.fillStyle = c.wheel; mctx.fill();
+                mctx.beginPath(); mctx.arc(0, 0, 4, 0, Math.PI * 2);
+                mctx.fillStyle = c.accent; mctx.fill();
+                mctx.strokeStyle = c.accent + '88'; mctx.lineWidth = 1.5;
+                for (let i = 0; i < 6; i++) {
+                    const a = spin + i * Math.PI / 3;
+                    mctx.beginPath(); mctx.moveTo(0, 0); mctx.lineTo(Math.cos(a) * 8, Math.sin(a) * 8); mctx.stroke();
+                }
+                mctx.restore();
+            });
+            // Scan beam
+            const beamX = -W2 * 0.5 + ((t * 60) % (W2 * 1.5));
+            mctx.strokeStyle = c.accent + '88'; mctx.lineWidth = 1;
+            mctx.beginPath(); mctx.moveTo(beamX, -H2 * 0.6); mctx.lineTo(beamX + 30, H2 * 0.7); mctx.stroke();
+            // LiDAR dome
+            mctx.beginPath(); mctx.arc(W2 * 0.33, -H2 * 0.55, 6, 0, Math.PI * 2);
+            mctx.fillStyle = c.accent; mctx.fill();
+            mctx.restore();
+        }
+
+        function drawCar(cx, cy, w, h, c, t) {
+            const W2 = w * 0.45, H2 = h * 0.28;
+            mctx.save(); mctx.translate(cx, cy);
+            mctx.fillStyle = c.body;
+            roundRect(mctx, -W2 * 0.5, -H2 * 0.2, W2, H2 * 0.7, 8);
+            mctx.fillStyle = c.cab;
+            roundRect(mctx, -W2 * 0.3, -H2 * 0.7, W2 * 0.6, H2 * 0.55, 6);
+            mctx.fillStyle = c.accent + '55';
+            roundRect(mctx, -W2 * 0.26, -H2 * 0.65, W2 * 0.52, H2 * 0.4, 4);
+            // Wheels
+            [-W2 * 0.35, W2 * 0.35].forEach(wx => {
+                mctx.save(); mctx.translate(wx, H2 * 0.3);
+                mctx.beginPath(); mctx.arc(0, 0, 9, 0, Math.PI * 2);
+                mctx.fillStyle = c.wheel; mctx.fill();
+                mctx.beginPath(); mctx.arc(0, 0, 3, 0, Math.PI * 2);
+                mctx.fillStyle = c.accent; mctx.fill();
+                mctx.restore();
+            });
+            // Sensors (spinning LiDAR)
+            mctx.save(); mctx.translate(0, -H2 * 0.75);
+            mctx.beginPath(); mctx.arc(0, 0, 7, 0, Math.PI * 2);
+            mctx.fillStyle = c.accent; mctx.fill();
+            const beams = 8;
+            for (let i = 0; i < beams; i++) {
+                const a = t * 3 + i * (Math.PI * 2 / beams);
+                mctx.strokeStyle = c.accent + (Math.floor(150 + i * 10).toString(16));
+                mctx.lineWidth = 1;
+                mctx.beginPath(); mctx.moveTo(0, 0); mctx.lineTo(Math.cos(a) * 20, Math.sin(a) * 20); mctx.stroke();
+            }
+            mctx.restore();
+            mctx.restore();
+        }
+
+        function drawTrain(cx, cy, w, h, c, t) {
+            const bx = Math.sin(t) * 15;
+            mctx.save(); mctx.translate(cx + bx, cy);
+            // Rail
+            mctx.strokeStyle = 'rgba(255,255,255,0.15)'; mctx.lineWidth = 2;
+            [-12, 12].forEach(ry => {
+                mctx.beginPath(); mctx.moveTo(-w * 0.5, ry + h * 0.18); mctx.lineTo(w * 0.5, ry + h * 0.18); mctx.stroke();
+            });
+            // Body
+            const W2 = w * 0.7, H2 = h * 0.35;
+            mctx.fillStyle = c.body;
+            roundRect(mctx, -W2 * 0.5, -H2 * 0.5, W2, H2, 6);
+            // Nose
+            mctx.fillStyle = c.cab;
+            roundRect(mctx, W2 * 0.38, -H2 * 0.45, W2 * 0.14, H2 * 0.9, 8);
+            // Windows
+            for (let i = 0; i < 4; i++) {
+                mctx.fillStyle = c.accent + '44';
+                roundRect(mctx, -W2 * 0.38 + i * (W2 * 0.22), -H2 * 0.35, W2 * 0.14, H2 * 0.3, 2);
+            }
+            // Wheels
+            [-W2 * 0.35, -W2 * 0.1, W2 * 0.15, W2 * 0.4].forEach(wx => {
+                mctx.beginPath(); mctx.arc(wx, H2 * 0.5, 8, 0, Math.PI * 2);
+                mctx.fillStyle = c.wheel; mctx.fill();
+                mctx.beginPath(); mctx.arc(wx, H2 * 0.5, 3, 0, Math.PI * 2);
+                mctx.fillStyle = c.accent; mctx.fill();
+            });
+            // Speed lines
+            for (let i = 0; i < 5; i++) {
+                const px = -W2 * 0.5 - i * 20 - ((t * 100) % 120);
+                mctx.strokeStyle = c.accent + (30 + i * 20).toString(16); mctx.lineWidth = 1;
+                mctx.beginPath(); mctx.moveTo(px, -10 + i * 8); mctx.lineTo(px + 30, -10 + i * 8); mctx.stroke();
+            }
+            mctx.restore();
+        }
+
+        function drawShip(cx, cy, w, h, c, t) {
+            const bob = Math.sin(t) * 3;
+            // Water
+            mctx.fillStyle = '#0d2a4a';
+            mctx.fillRect(-w * 0.5, cy + h * 0.15, w * 1.5, h * 0.4);
+            // Waves
+            mctx.strokeStyle = 'rgba(0,200,255,0.2)'; mctx.lineWidth = 1;
+            for (let wx = -w * 0.5; wx < w * 0.5; wx += 20) {
+                mctx.beginPath();
+                mctx.moveTo(wx, cy + h * 0.17);
+                mctx.quadraticCurveTo(wx + 10, cy + h * 0.17 - Math.sin(t + wx * 0.05) * 4, wx + 20, cy + h * 0.17);
+                mctx.stroke();
+            }
+            mctx.save(); mctx.translate(cx, cy + bob);
+            const W2 = w * 0.7, H2 = h * 0.3;
+            // Hull
+            mctx.fillStyle = c.body;
+            mctx.beginPath();
+            mctx.moveTo(-W2 * 0.5, 0); mctx.lineTo(W2 * 0.5, -H2 * 0.2);
+            mctx.lineTo(W2 * 0.5, H2 * 0.4); mctx.lineTo(-W2 * 0.5, H2 * 0.4);
+            mctx.lineTo(-W2 * 0.55, H2 * 0.2); mctx.closePath();
+            mctx.fill();
+            // Superstructure
+            mctx.fillStyle = c.cab;
+            roundRect(mctx, -W2 * 0.15, -H2 * 0.7, W2 * 0.4, H2 * 0.5, 4);
+            // Antenna
+            mctx.strokeStyle = c.accent; mctx.lineWidth = 2;
+            mctx.beginPath(); mctx.moveTo(W2 * 0.1, -H2 * 0.7); mctx.lineTo(W2 * 0.1, -H2 * 1.1); mctx.stroke();
+            // Radar dish (rotating)
+            mctx.save(); mctx.translate(W2 * 0.1, -H2 * 1.1); mctx.rotate(t * 2);
+            mctx.strokeStyle = c.accent + 'aa'; mctx.lineWidth = 1;
+            mctx.beginPath(); mctx.moveTo(0, 0); mctx.lineTo(12, 0); mctx.stroke();
+            mctx.restore();
+            mctx.restore();
+        }
+
+        function drawDrone(cx, cy, w, h, c, t) {
+            const bob = Math.sin(t * 2) * 5;
+            mctx.save(); mctx.translate(cx, cy + bob);
+            const S = Math.min(w, h) * 0.3;
+            // Arms
+            [[-1, -1], [-1, 1], [1, -1], [1, 1]].forEach(([dx, dy]) => {
+                mctx.strokeStyle = c.body; mctx.lineWidth = 4;
+                mctx.beginPath(); mctx.moveTo(0, 0); mctx.lineTo(dx * S * 0.6, dy * S * 0.6); mctx.stroke();
+                // Propellers
+                mctx.save(); mctx.translate(dx * S * 0.6, dy * S * 0.6);
+                mctx.rotate(t * 8 * (dx * dy > 0 ? 1 : -1));
+                mctx.strokeStyle = c.accent + '88'; mctx.lineWidth = 2;
+                mctx.beginPath(); mctx.moveTo(-S * 0.25, 0); mctx.lineTo(S * 0.25, 0); mctx.stroke();
+                mctx.beginPath(); mctx.moveTo(0, -S * 0.1); mctx.lineTo(0, S * 0.1); mctx.stroke();
+                // Blur ring
+                mctx.strokeStyle = c.accent + '22'; mctx.lineWidth = 3;
+                mctx.beginPath(); mctx.arc(0, 0, S * 0.25, 0, Math.PI * 2); mctx.stroke();
+                mctx.restore();
+            });
+            // Body
+            mctx.fillStyle = c.body;
+            mctx.beginPath(); mctx.arc(0, 0, S * 0.18, 0, Math.PI * 2); mctx.fill();
+            mctx.fillStyle = c.accent;
+            mctx.beginPath(); mctx.arc(0, 0, S * 0.08, 0, Math.PI * 2); mctx.fill();
+            // Delivery package
+            mctx.fillStyle = '#f59e0b';
+            roundRect(mctx, -10, S * 0.16, 20, 14, 2);
+            // LiDAR pulse rings
+            const pr = (t % 1) * 50;
+            mctx.strokeStyle = c.accent + (Math.floor(200 * (1 - t % 1)).toString(16).padStart(2, '0'));
+            mctx.lineWidth = 1; mctx.beginPath(); mctx.arc(0, 0, pr, 0, Math.PI * 2); mctx.stroke();
+            mctx.restore();
+        }
+
+        function drawEvtol(cx, cy, w, h, c, t) {
+            const bob = Math.sin(t * 1.5) * 5;
+            mctx.save(); mctx.translate(cx, cy + bob);
+            const S = Math.min(w, h) * 0.28;
+            // Fuselage
+            mctx.fillStyle = c.body;
+            mctx.beginPath();
+            mctx.ellipse(0, 0, S * 0.55, S * 0.22, 0, 0, Math.PI * 2);
+            mctx.fill();
+            // Cockpit
+            mctx.fillStyle = c.accent + '55';
+            mctx.beginPath();
+            mctx.ellipse(S * 0.1, -S * 0.05, S * 0.22, S * 0.16, 0, 0, Math.PI * 2);
+            mctx.fill();
+            // Wings
+            [-1, 1].forEach(side => {
+                mctx.fillStyle = c.cab;
+                mctx.beginPath();
+                mctx.moveTo(-S * 0.1, side * S * 0.15);
+                mctx.lineTo(-S * 0.5, side * S * 0.45);
+                mctx.lineTo(-S * 0.6, side * S * 0.38);
+                mctx.lineTo(-S * 0.05, side * S * 0.1);
+                mctx.closePath(); mctx.fill();
+                // Rotors on wing tips
+                mctx.save(); mctx.translate(-S * 0.55, side * S * 0.43);
+                mctx.rotate(t * 12);
+                mctx.strokeStyle = c.accent + '88'; mctx.lineWidth = 2;
+                mctx.beginPath(); mctx.moveTo(-S * 0.14, 0); mctx.lineTo(S * 0.14, 0); mctx.stroke();
+                mctx.beginPath(); mctx.moveTo(0, -S * 0.14); mctx.lineTo(0, S * 0.14); mctx.stroke();
+                mctx.strokeStyle = c.accent + '22'; mctx.lineWidth = 3;
+                mctx.beginPath(); mctx.arc(0, 0, S * 0.15, 0, Math.PI * 2); mctx.stroke();
+                mctx.restore();
+            });
+            // Engine glow
+            mctx.shadowColor = c.accent; mctx.shadowBlur = 15;
+            mctx.fillStyle = c.accent;
+            mctx.beginPath(); mctx.arc(-S * 0.5, 0, 3, 0, Math.PI * 2); mctx.fill();
+            mctx.shadowBlur = 0;
+            mctx.restore();
+        }
+
+        function roundRect(ctx, x, y, w, h, r) {
+            ctx.beginPath();
+            ctx.moveTo(x + r, y); ctx.lineTo(x + w - r, y);
+            ctx.quadraticCurveTo(x + w, y, x + w, y + r);
+            ctx.lineTo(x + w, y + h - r); ctx.quadraticCurveTo(x + w, y + h, x + w - r, y + h);
+            ctx.lineTo(x + r, y + h); ctx.quadraticCurveTo(x, y + h, x, y + h - r);
+            ctx.lineTo(x, y + r); ctx.quadraticCurveTo(x, y, x + r, y);
+            ctx.closePath(); ctx.fill();
+        }
+
+        // Model animation loop
+        function modelLoop() {
+            modelT += 0.016;
+            drawModel(modelT);
+            modelRaf = requestAnimationFrame(modelLoop);
+        }
+
+        document.querySelectorAll('.mtab').forEach(btn => {
+            btn.addEventListener('click', () => {
+                document.querySelectorAll('.mtab').forEach(b => b.classList.remove('active'));
+                btn.classList.add('active');
+                modelType = btn.dataset.model;
+            });
+        });
+
+        // ═══ TIMELINE ═══
+        function buildTimeline() {
+            const wrap = document.getElementById('timeline-wrap');
+            wrap.innerHTML = '';
+            TIMELINE.forEach((item, i) => {
+                const el = document.createElement('div');
+                el.className = 'tl-item';
+                el.innerHTML = `<div class="tl-year">${item.year}</div>
+      <div class="tl-dot" style="background:${LEVEL_COLORS[COUNTRIES[item.country]?.level || 4]}"></div>
+      <div class="tl-text">${COUNTRIES[item.country]?.flag || ''} ${item.text}</div>`;
+                el.addEventListener('click', () => {
+                    if (COUNTRIES[item.country]) openPanel(item.country);
+                });
+                wrap.appendChild(el);
+                if (i < TIMELINE.length - 1) {
+                    const line = document.createElement('div');
+                    line.className = 'tl-line';
+                    wrap.appendChild(line);
+                }
+            });
+        }
+
+        // ═══ SEARCH ═══
+        document.getElementById('search-box').addEventListener('input', e => {
+            const q = e.target.value.toLowerCase();
+            if (!q) return;
+            for (const [code, c] of Object.entries(COUNTRIES)) {
+                if (c.name.toLowerCase().includes(q) || code.toLowerCase().includes(q)) {
+                    openPanel(code);
+                    // Rotate globe to show country
+                    const phi = (90 - c.lat) * Math.PI / 180;
+                    const theta = (c.lng + 180) * Math.PI / 180;
+                    rotY = -theta + Math.PI;
+                    rotX = -(c.lat * Math.PI / 180) * 0.3;
+                    break;
+                }
+            }
+        });
+
+        // ═══ INIT ═══
+        window.addEventListener('resize', () => { resize(); initModelCanvas(); });
+        resize();
+        buildTimeline();
+        loop();
+        initModelCanvas();
+        modelLoop();
+
+        // Auto open Russia on start
+        setTimeout(() => openPanel('RUS'), 600);
+    </script>
+</body>
+
+</html>
